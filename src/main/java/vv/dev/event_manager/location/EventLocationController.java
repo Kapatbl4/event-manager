@@ -29,14 +29,11 @@ public class EventLocationController {
     private static final Logger log = LoggerFactory.getLogger(EventLocationController.class);
 
     private final EventLocationService service;
+    private final EventLocationMapper eventLocationMapper;
 
-    private final EventLocationConverter eventLocationConverter;
-
-
-
-    public EventLocationController(EventLocationService service, EventLocationConverter eventLocationConverter) {
+    public EventLocationController(EventLocationService service, EventLocationMapper eventLocationMapper) {
         this.service = service;
-        this.eventLocationConverter = eventLocationConverter;
+        this.eventLocationMapper = eventLocationMapper;
     }
 
     @PostMapping
@@ -46,11 +43,11 @@ public class EventLocationController {
         log.info("Got request for create Event location: eventLocation={}", eventLocationCreateDto);
 
         EventLocation createdEventLocation = service.saveEventLocation(
-                eventLocationConverter.fromCreateDtoToDomain(eventLocationCreateDto)
+                eventLocationMapper.fromCreateDtoToDomain(eventLocationCreateDto)
         );
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(eventLocationConverter.fromDomainToShowDto(createdEventLocation));
+                .body(eventLocationMapper.fromDomainToShowDto(createdEventLocation));
     }
 
     @GetMapping
@@ -64,7 +61,7 @@ public class EventLocationController {
 
         Page<EventLocation> locations = service.findAll(pageable);
 
-        Page<EventLocationShowDto> dtos = locations.map(eventLocationConverter::fromDomainToShowDto);
+        Page<EventLocationShowDto> dtos = locations.map(eventLocationMapper::fromDomainToShowDto);
 
         return ResponseEntity.ok(dtos);
     }
@@ -73,25 +70,23 @@ public class EventLocationController {
     public ResponseEntity<EventLocationShowDto> showById(@PathVariable Long locationId) {
         log.info("Got request for show Event location by id: locationId={}", locationId);
 
-        return ResponseEntity.ok(eventLocationConverter.fromDomainToShowDto(service.findById(locationId)));
+        return ResponseEntity.ok(eventLocationMapper.fromDomainToShowDto(service.findById(locationId)));
     }
-
 
     @PutMapping("/{locationId}")
     public ResponseEntity<EventLocationShowDto> fullUpdateById(
             @PathVariable Long locationId,
             @RequestBody @Valid EventLocationFullUpdateDto eventLocationFullUpdateDto
-            ) {
+    ) {
         log.info("Got request for full update Event location by id: locationId={}", locationId);
 
         return ResponseEntity
                 .ok(
-                        eventLocationConverter.fromDomainToShowDto(
+                        eventLocationMapper.fromDomainToShowDto(
                                 service.fullUpdateById(locationId, eventLocationFullUpdateDto)
                         )
                 );
     }
-
 
     @DeleteMapping("/{locationId}")
     public ResponseEntity<Void> deleteById(@PathVariable Long locationId) {

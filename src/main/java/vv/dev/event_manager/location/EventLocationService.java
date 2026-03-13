@@ -18,17 +18,14 @@ import java.util.Optional;
 public class EventLocationService {
 
     private final EventLocationRepository eventLocationRepository;
-    private final EventLocationConverter eventLocationConverter;
     private final EventLocationMapper eventLocationMapper;
 
 
     public EventLocationService(
             EventLocationRepository eventLocationRepository,
-            EventLocationConverter eventLocationConverter,
             EventLocationMapper eventLocationMapper
     ) {
         this.eventLocationRepository = eventLocationRepository;
-        this.eventLocationConverter = eventLocationConverter;
         this.eventLocationMapper = eventLocationMapper;
     }
 
@@ -38,15 +35,15 @@ public class EventLocationService {
             throw new IllegalArgumentException("Event location name is already taken");
         }
 
-        var entityToSave = eventLocationConverter.fromDomainToEntityForCreation(eventLocation);
+        var entityToSave = eventLocationMapper.fromDomainToEntity(eventLocation);
 
-        return eventLocationConverter.fromEntityToDomain(eventLocationRepository.save(entityToSave));
+        return eventLocationMapper.fromEntityToDomain(eventLocationRepository.save(entityToSave));
     }
 
     public Page<EventLocation> findAll(Pageable pageable) {
         return eventLocationRepository
                 .findAll(pageable)
-                .map(eventLocationConverter::fromEntityToDomain);
+                .map(eventLocationMapper::fromEntityToDomain);
     }
 
     public EventLocation findById(Long locationId) {
@@ -55,7 +52,7 @@ public class EventLocationService {
             throw new EntityNotFoundException("Entity not found");
         }
 
-        return eventLocationConverter.fromEntityToDomain(entity.get());
+        return eventLocationMapper.fromEntityToDomain(entity.get());
     }
 
     @Transactional
@@ -80,7 +77,7 @@ public class EventLocationService {
 
         eventLocationMapper.updateEntityFromDto(entity, eventLocationFullUpdateDto);
 
-        return eventLocationConverter.fromEntityToDomain(eventLocationRepository.save(entity));
+        return eventLocationMapper.fromEntityToDomain(eventLocationRepository.save(entity));
     }
 
 }
