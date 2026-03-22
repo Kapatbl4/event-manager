@@ -29,6 +29,7 @@ public class UserService {
                 null,
                 signUpRequest.login(),
                 hashedPassword,
+                signUpRequest.age(),
                 Role.USER.name()
         );
         return userMapper.fromEntityToDomain(userRepository.save(userToSave));

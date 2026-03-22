@@ -7,12 +7,14 @@ public class User {
     private long id;
     private String login;
     private String passwordHash;
+    private int age;
     private Role role;
 
-    public User(long id, String login, String passwordHash, Role role) {
+    public User(long id, String login, String passwordHash, int age, Role role) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
+        this.age = age;
         this.role = role;
     }
 
@@ -49,5 +51,13 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
     }
 }

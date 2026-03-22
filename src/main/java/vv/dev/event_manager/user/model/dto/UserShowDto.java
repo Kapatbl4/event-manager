@@ -3,11 +3,13 @@ package vv.dev.event_manager.user.model.dto;
 public class UserShowDto {
     private Long id;
     private String login;
+    private int age;
     private String role;
 
-    public UserShowDto(Long id, String login, String role) {
+    public UserShowDto(Long id, String login, int age, String role) {
         this.id = id;
         this.login = login;
+        this.age = age;
         this.role = role;
     }
 
@@ -33,5 +35,13 @@ public class UserShowDto {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
     }
 }

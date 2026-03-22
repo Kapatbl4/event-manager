@@ -20,15 +20,18 @@ public class UserEntity {
 
     private String passwordHash;
 
+    private int age;
+
     private String role;
 
     public UserEntity() {
     }
 
-    public UserEntity(Long id, String login, String passwordHash, String role) {
+    public UserEntity(Long id, String login, String passwordHash, int age, String role) {
         this.id = id;
         this.login = login;
         this.passwordHash = passwordHash;
+        this.age = age;
         this.role = role;
     }
 
@@ -62,5 +65,13 @@ public class UserEntity {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
     }
 }

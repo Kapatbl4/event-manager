@@ -24,13 +24,14 @@ public class DefaultUsersInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     public void initializeDefaultUsers() {
-        createUser("admin", "admin", Role.ADMIN);
-        createUser("user", "user", Role.USER);
+        createUser("admin", "admin", 30, Role.ADMIN);
+        createUser("user", "user", 18, Role.USER);
     }
 
     private void createUser(
             String login,
             String password,
+            int age,
             Role role
     ) {
         if (repository.existsByLogin(login)) {
@@ -41,6 +42,7 @@ public class DefaultUsersInitializer {
                 null,
                 login,
                 hashedPassword,
+                age,
                 role.name()
         );
         repository.save(userToSave);
