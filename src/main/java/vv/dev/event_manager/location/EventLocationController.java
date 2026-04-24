@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,6 +38,7 @@ public class EventLocationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<EventLocationShowDto> createLocation(
             @RequestBody @Valid EventLocationCreateDto eventLocationCreateDto
     ) {
@@ -51,6 +53,7 @@ public class EventLocationController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('USER', 'ADMIN')")
     public ResponseEntity<Page<EventLocationShowDto>> showAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -67,6 +70,7 @@ public class EventLocationController {
     }
 
     @GetMapping("/{locationId}")
+    @PreAuthorize("hasAnyAuthority('USER', 'ADMIN')")
     public ResponseEntity<EventLocationShowDto> showById(@PathVariable Long locationId) {
         log.info("Got request for show Event location by id: locationId={}", locationId);
 
@@ -74,6 +78,7 @@ public class EventLocationController {
     }
 
     @PutMapping("/{locationId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<EventLocationShowDto> fullUpdateById(
             @PathVariable Long locationId,
             @RequestBody @Valid EventLocationFullUpdateDto eventLocationFullUpdateDto
@@ -89,6 +94,7 @@ public class EventLocationController {
     }
 
     @DeleteMapping("/{locationId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Void> deleteById(@PathVariable Long locationId) {
         log.info("Got request for delete Event location by id: locationId={}", locationId);
 

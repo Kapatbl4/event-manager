@@ -1,4 +1,4 @@
-package vv.dev.event_manager.registration;
+package vv.dev.event_manager.registration.model;
 
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.user.model.User;

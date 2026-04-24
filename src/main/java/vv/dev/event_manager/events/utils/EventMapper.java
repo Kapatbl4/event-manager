@@ -1,15 +1,16 @@
-package vv.dev.event_manager.events;
+package vv.dev.event_manager.events.utils;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-import org.springframework.beans.factory.annotation.Autowired;
+import vv.dev.event_manager.events.EventStatus;
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.events.model.EventEntity;
 import vv.dev.event_manager.events.model.dto.EventCreateDto;
 import vv.dev.event_manager.events.model.dto.EventDto;
+import vv.dev.event_manager.events.model.dto.EventUpdateDto;
 import vv.dev.event_manager.location.EventLocationMapper;
 import vv.dev.event_manager.location.EventLocationRepository;
 import vv.dev.event_manager.location.model.EventLocationEntity;
@@ -62,6 +63,13 @@ public interface EventMapper {
     @Mapping(source = "owner.id", target = "ownerId", qualifiedByName = "longToString")
     @Mapping(source = "location.id", target = "locationId")
     EventDto fromDomainToDto(Event event);
+
+    @Mapping(source = "locationId", target = "location.id")
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    @Mapping(target = "occupiedPlaces", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    Event fromEventUpdateDtoToDomain(EventUpdateDto eventUpdateDto);
 
     @Named("longToString")
     default String longToString(Long value) {

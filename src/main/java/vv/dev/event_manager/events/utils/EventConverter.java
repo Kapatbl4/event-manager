@@ -1,10 +1,11 @@
-package vv.dev.event_manager.events;
+package vv.dev.event_manager.events.utils;
 
 import org.springframework.stereotype.Component;
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.events.model.EventEntity;
 import vv.dev.event_manager.events.model.dto.EventCreateDto;
 import vv.dev.event_manager.events.model.dto.EventDto;
+import vv.dev.event_manager.events.model.dto.EventUpdateDto;
 import vv.dev.event_manager.location.EventLocationMapper;
 import vv.dev.event_manager.location.EventLocationRepository;
 import vv.dev.event_manager.user.UserMapper;
@@ -55,6 +56,10 @@ public class EventConverter {
 
     public EventDto fromDomainToDto(Event event) {
         return eventMapper.fromDomainToDto(event);
+    }
+
+    public Event fromUpdateDtoToDomain(EventUpdateDto eventUpdateDto) {
+        return eventMapper.fromEventUpdateDtoToDomain(eventUpdateDto);
     }
 
 }
