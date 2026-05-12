@@ -25,6 +25,7 @@ public class EventCreateDto {
     @Min(30)
     private Integer duration;
 
+    @NotNull
     private Long locationId;
 
     public EventCreateDto(String name, int maxPlaces, LocalDateTime date, BigDecimal cost, Integer duration, Long locationId) {

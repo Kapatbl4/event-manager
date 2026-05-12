@@ -37,4 +37,6 @@ public interface EventRepository extends JpaRepository<EventEntity, Long>, JpaSp
             WHERE e.status = :status
             """)
     List<EventEntity> findByStatus(@Param("status") String status);
+
+    EventEntity findByName(String name);
 }

@@ -87,4 +87,10 @@ public class RegistrationService {
                 ))
                 .toList();
     }
+
+    public void cancelRegistrationsOnCancelledEvent(Long eventId) {
+        var event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found"));
+        registrationRepository.deleteAllByEventId(eventId);
+    }
 }

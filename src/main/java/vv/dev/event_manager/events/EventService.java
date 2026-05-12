@@ -12,6 +12,7 @@ import vv.dev.event_manager.events.model.dto.EventSearchRequestDto;
 import vv.dev.event_manager.events.utils.EventMapper;
 import vv.dev.event_manager.events.utils.PermissionService;
 import vv.dev.event_manager.location.EventLocationRepository;
+import vv.dev.event_manager.registration.RegistrationService;
 import vv.dev.event_manager.user.UserMapper;
 import vv.dev.event_manager.user.UserRepository;
 import vv.dev.event_manager.user.model.User;
@@ -31,6 +32,7 @@ public class EventService {
     private final EventMapper eventMapper;
     private final UserMapper userMapper;
     private final PermissionService permissionService;
+    private final RegistrationService registrationService;
 
     public EventService(
             EventRepository eventRepository,
@@ -38,7 +40,8 @@ public class EventService {
             UserRepository userRepository,
             EventMapper eventMapper,
             UserMapper userMapper,
-            PermissionService permissionService
+            PermissionService permissionService,
+            RegistrationService registrationService
     ) {
         this.eventRepository = eventRepository;
         this.eventLocationRepository = eventLocationRepository;
@@ -46,17 +49,11 @@ public class EventService {
         this.eventMapper = eventMapper;
         this.userMapper = userMapper;
         this.permissionService = permissionService;
+        this.registrationService = registrationService;
     }
 
     @Transactional
     public Event createEvent(Event event) {
-        if (eventRepository.existsByName(event.getName())) {
-            throw new IllegalArgumentException("Event name is already taken");
-        }
-        if (!eventLocationRepository.existsById(event.getLocation().getId())) {
-            throw new IllegalArgumentException("Event location does not exists");
-        }
-
         List<EventEntity> conflictEvents = this.findConflictingEvents(
                 event.getLocation().getId(),
                 event.getDate(),
@@ -98,6 +95,7 @@ public class EventService {
         }
         event.setStatus(EventStatus.CANCELLED);
         eventRepository.save(eventMapper.fromDomainToEntity(event));
+        registrationService.cancelRegistrationsOnCancelledEvent(eventId);
     }
 
     public Event getEventById(Long eventId) {
@@ -134,8 +132,10 @@ public class EventService {
             throw new IllegalArgumentException("Cannot update event: capacity cannot be less than occupied places");
         }
 
-        if (!eventLocationRepository.existsById(data.getLocation().getId())) {
-            throw new IllegalArgumentException("Cannot update event: event location not found");
+        if (data.getLocation() != null) {
+            if (!eventLocationRepository.existsById(data.getLocation().getId())) {
+                throw new IllegalArgumentException("Cannot update event: event location not found");
+            }
         }
 
         List<EventEntity> conflictEvents = new ArrayList<>();
@@ -230,7 +230,11 @@ public class EventService {
         List<EventEntity> futureEvents = eventRepository.findEventsByLocationAndInTheFutureOrPresent(locationId);
         for (EventEntity event : futureEvents) {
             LocalDateTime endTime = event.getDate().plusMinutes(event.getDuration());
-            if (newEventStartTime.isBefore(endTime) && event.getDate().isBefore(newEventEndTime)) {
+            if (
+                    newEventStartTime.isBefore(endTime) &&
+                            event.getDate().isBefore(newEventEndTime) &&
+                            !event.getStatus().equals("CANCELLED")
+            ) {
                 conflictedEvents.add(event);
             }
         }

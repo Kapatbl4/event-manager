@@ -1,5 +1,6 @@
 package vv.dev.event_manager.events.utils;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Component;
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.events.model.EventEntity;
@@ -8,8 +9,12 @@ import vv.dev.event_manager.events.model.dto.EventDto;
 import vv.dev.event_manager.events.model.dto.EventUpdateDto;
 import vv.dev.event_manager.location.EventLocationMapper;
 import vv.dev.event_manager.location.EventLocationRepository;
+import vv.dev.event_manager.location.model.EventLocation;
+import vv.dev.event_manager.location.model.EventLocationEntity;
 import vv.dev.event_manager.user.UserMapper;
 import vv.dev.event_manager.user.UserRepository;
+import vv.dev.event_manager.user.model.User;
+import vv.dev.event_manager.user.model.UserEntity;
 
 @Component
 public class EventConverter {
@@ -36,13 +41,21 @@ public class EventConverter {
     }
 
     public Event fromEventCreateDtoToDomain(EventCreateDto dto, Long currentUserId) {
+        UserEntity ownerEntity = userRepository
+                .findById(currentUserId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        User user = userMapper.fromEntityToDomain(ownerEntity);
+
+
+        EventLocationEntity eventLocationEntity = eventLocationRepository.findById(dto.getLocationId())
+                .orElseThrow(() -> new EntityNotFoundException("Location not found"));
+
+        EventLocation eventLocation = eventLocationMapper.fromEntityToDomain(eventLocationEntity);
+
         return eventMapper.fromEventCreateDtoToDomain(
                 dto,
-                currentUserId,
-                userRepository,
-                eventLocationRepository,
-                userMapper,
-                eventLocationMapper
+                user,
+                eventLocation
         );
     }
 
