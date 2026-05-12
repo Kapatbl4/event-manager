@@ -18,7 +18,7 @@ import java.io.IOException;
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(CustomAuthenticationEntryPoint.class);
+    private static final Logger log = LoggerFactory.getLogger(CustomAccessDeniedHandler.class);
 
     private final ObjectMapper objectMapper;
 
