@@ -5,9 +5,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+
+import java.nio.file.AccessDeniedException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -41,6 +44,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMessageResponse);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorMessageResponse> handleIllegalStateException(IllegalStateException ex) {
+        ErrorMessageResponse errorMessageResponse = new ErrorMessageResponse(
+                ex.getMessage(),
+                "Not valid argument"
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMessageResponse);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorMessageResponse> handleValidationException(MethodArgumentNotValidException ex) {
         StringBuilder errors = new StringBuilder();
@@ -53,4 +65,23 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMessageResponse);
     }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorMessageResponse> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
+        ErrorMessageResponse errorMessageResponse = new ErrorMessageResponse(
+                ex.getMessage(),
+                "Authorization denied"
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorMessageResponse);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorMessageResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        ErrorMessageResponse errorMessageResponse = new ErrorMessageResponse(
+                ex.getMessage(),
+                "Access denied"
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorMessageResponse);
+    }
+
 }

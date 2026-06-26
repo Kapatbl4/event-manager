@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +24,11 @@ public class UserController {
     private final UserMapper userMapper;
     private final JwtAuthenticationService jwtAuthenticationService;
 
-    public UserController(UserService userService, UserMapper userMapper, JwtAuthenticationService jwtAuthenticationService) {
+    public UserController(
+            UserService userService,
+            UserMapper userMapper,
+            JwtAuthenticationService jwtAuthenticationService
+    ) {
         this.userService = userService;
         this.userMapper = userMapper;
         this.jwtAuthenticationService = jwtAuthenticationService;
@@ -40,6 +45,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<UserShowDto> getUserById(@PathVariable Long userId) {
         log.info("Got request for get user by id: id={}", userId);
         var user = userService.findById(userId);

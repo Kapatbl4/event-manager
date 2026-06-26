@@ -75,6 +75,10 @@ public class EventLocationService {
 
         EventLocationEntity entity = foundEntity.get();
 
+        if(eventLocationFullUpdateDto.getCapacity() < entity.getCapacity()) {
+            throw new IllegalArgumentException("Capacity cannot be changed to low");
+        }
+
         eventLocationMapper.updateEntityFromDto(entity, eventLocationFullUpdateDto);
 
         return eventLocationMapper.fromEntityToDomain(eventLocationRepository.save(entity));
