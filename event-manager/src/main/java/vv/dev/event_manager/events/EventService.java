@@ -14,8 +14,8 @@ import vv.dev.event_manager.events.model.dto.EventSearchRequestDto;
 import vv.dev.event_manager.events.utils.EventMapper;
 import vv.dev.event_manager.events.utils.PermissionService;
 import vv.dev.event_manager.kafka.EventChangeCollector;
-import vv.dev.event_manager.kafka.EventChangeKafkaMessageSender;
 import vv.dev.event_manager.kafka.EventMessageBuilder;
+import vv.dev.event_manager.kafka.outbox.OutboxService;
 import vv.dev.event_manager.location.EventLocationRepository;
 import vv.dev.event_manager.registration.RegistrationService;
 import vv.dev.event_manager.user.UserMapper;
@@ -38,7 +38,7 @@ public class EventService {
     private final UserMapper userMapper;
     private final PermissionService permissionService;
     private final RegistrationService registrationService;
-    private final EventChangeKafkaMessageSender kafkaMessageSender;
+    private final OutboxService outboxService;
     private final EventMessageBuilder eventMessageBuilder;
     private final EventChangeCollector eventChangeCollector;
 
@@ -50,7 +50,7 @@ public class EventService {
             UserMapper userMapper,
             PermissionService permissionService,
             RegistrationService registrationService,
-            EventChangeKafkaMessageSender kafkaMessageSender,
+            OutboxService outboxService,
             EventMessageBuilder eventMessageBuilder,
             EventChangeCollector eventChangeCollector
     ) {
@@ -61,7 +61,7 @@ public class EventService {
         this.userMapper = userMapper;
         this.permissionService = permissionService;
         this.registrationService = registrationService;
-        this.kafkaMessageSender = kafkaMessageSender;
+        this.outboxService = outboxService;
         this.eventMessageBuilder = eventMessageBuilder;
         this.eventChangeCollector = eventChangeCollector;
     }
@@ -71,7 +71,8 @@ public class EventService {
         List<EventEntity> conflictEvents = this.findConflictingEvents(
                 event.getLocation().getId(),
                 event.getDate(),
-                event.getDuration()
+                event.getDuration(),
+                null
         );
 
         if (!conflictEvents.isEmpty()) {
@@ -107,18 +108,20 @@ public class EventService {
         if (!event.getStatus().equals(EventStatus.WAIT_START)) {
             throw new IllegalStateException("Cannot cancel event: you can cancel event with status WAIT_START only");
         }
+        String oldStatus = event.getStatus().name();
+
         event.setStatus(EventStatus.CANCELLED);
         eventRepository.save(eventMapper.fromDomainToEntity(event));
         registrationService.cancelRegistrationsOnCancelledEvent(eventId);
 
-        Event oldEvent = eventMapper.fromEntityToDomain(foundEvent.get());
         EventChangeKafkaMessage message = eventMessageBuilder.createStatusChangedMessage(
                 event,
                 user.getId(),
                 registrationService.findAllEventParticipants(event.getId()),
-                eventChangeCollector.collectEventChanges(oldEvent, event)
+                oldStatus,
+                event.getStatus().name()
         );
-        kafkaMessageSender.sendMessage(message);
+        outboxService.saveMessage(message);
 
     }
 
@@ -136,6 +139,7 @@ public class EventService {
         if (foundEvent.isEmpty()) {
             throw new EntityNotFoundException("Event not found");
         }
+        Event oldEvent = eventMapper.fromEntityToDomain(foundEvent.get());
         Event event = eventMapper.fromEntityToDomain(foundEvent.get());
         User user = userMapper.fromEntityToDomain(
                 userRepository.findById(userId)
@@ -169,13 +173,15 @@ public class EventService {
                 conflictEvents = this.findConflictingEvents(
                         event.getLocation().getId(),
                         data.getDate(),
-                        data.getDuration()
+                        data.getDuration(),
+                        eventId
                 );
             } else {
                 conflictEvents = this.findConflictingEvents(
                         event.getLocation().getId(),
                         data.getDate(),
-                        event.getDuration()
+                        event.getDuration(),
+                        eventId
                 );
             }
         } else {
@@ -183,7 +189,8 @@ public class EventService {
                 conflictEvents = this.findConflictingEvents(
                         event.getLocation().getId(),
                         event.getDate(),
-                        data.getDuration()
+                        data.getDuration(),
+                        eventId
                 );
             }
         }
@@ -214,6 +221,17 @@ public class EventService {
 
         var updatedEvent = eventRepository.save(eventMapper.fromDomainToEntity(event));
 
+        List<ChangeItem> changes = eventChangeCollector.collectEventChanges(oldEvent, event);
+        if (!changes.isEmpty()) {
+            EventChangeKafkaMessage message = eventMessageBuilder.createUpdateMessage(
+                    event,
+                    user.getId(),
+                    registrationService.findAllEventParticipants(event.getId()),
+                    changes
+            );
+            outboxService.saveMessage(message);
+        }
+
         return eventMapper.fromEntityToDomain(updatedEvent);
     }
 
@@ -224,9 +242,6 @@ public class EventService {
                 .toList();
     }
 
-    public List<Long> getEventParticipants(Event event) {
-        return registrationService.findAllEventParticipants(event.getId());
-    }
 
     public Page<Event> searchEventsByParams(EventSearchRequestDto searchDto, Pageable pageable) {
         Specification<EventEntity> spec = Specification
@@ -250,13 +265,17 @@ public class EventService {
     private List<EventEntity> findConflictingEvents(
             Long locationId,
             LocalDateTime newEventStartTime,
-            Integer newEventDuration
+            Integer newEventDuration,
+            Long excludeEventId
     ) {
         List<EventEntity> conflictedEvents = new ArrayList<>();
         LocalDateTime newEventEndTime = newEventStartTime.plusMinutes(newEventDuration);
 
         List<EventEntity> futureEvents = eventRepository.findEventsByLocationAndInTheFutureOrPresent(locationId);
         for (EventEntity event : futureEvents) {
+            if (excludeEventId != null && excludeEventId.equals(event.getId())) {
+                continue;
+            }
             LocalDateTime endTime = event.getDate().plusMinutes(event.getDuration());
             if (
                     newEventStartTime.isBefore(endTime) &&

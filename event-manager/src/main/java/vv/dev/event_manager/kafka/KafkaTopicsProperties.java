@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 public class KafkaTopicsProperties {
 
     private String eventChanges;
+    private String dlq;
 
     public String getEventChanges() {
         return eventChanges;
@@ -15,5 +16,13 @@ public class KafkaTopicsProperties {
 
     public void setEventChanges(String eventChanges) {
         this.eventChanges = eventChanges;
+    }
+
+    public String getDlq() {
+        return dlq;
+    }
+
+    public void setDlq(String dlq) {
+        this.dlq = dlq;
     }
 }

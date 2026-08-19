@@ -36,5 +36,9 @@ public interface RegistrationRepository extends JpaRepository<RegistrationEntity
             """)
     void deleteAllByEventId(@Param("eventId") Long eventId);
 
-    List<Long> findAllByEventId(Long eventId);
+    @Query("""
+            SELECT r.user.id FROM RegistrationEntity r
+            WHERE r.event.id = :eventId
+            """)
+    List<Long> findAllByEventId(@Param("eventId") Long eventId);
 }

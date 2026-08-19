@@ -5,6 +5,7 @@ import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import VV.dev.eventcommon.kafka.EventType;
 import org.springframework.stereotype.Component;
 import vv.dev.event_manager.events.model.Event;
+import vv.dev.event_manager.events.model.EventEntity;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +24,7 @@ public class EventMessageBuilder {
                 .messageId(UUID.randomUUID().toString())
                 .eventType(EventType.EVENT_UPDATED)
                 .eventId(event.getId())
+                .eventName(event.getName())
                 .occurredAt(LocalDateTime.now())
                 .ownerId(event.getOwner().getId())
                 .changedById(changedById)
@@ -35,17 +37,51 @@ public class EventMessageBuilder {
             Event event,
             Long changedById,
             List<Long> participants,
-            List<ChangeItem> changes
+            String oldStatus,
+            String newStatus
     ) {
+        ChangeItem changeStatus = new ChangeItem(
+                "status",
+                oldStatus,
+                newStatus
+        );
+
         return EventChangeKafkaMessage.builder()
                 .messageId(UUID.randomUUID().toString())
                 .eventType(EventType.STATUS_CHANGED)
                 .eventId(event.getId())
+                .eventName(event.getName())
                 .occurredAt(LocalDateTime.now())
                 .ownerId(event.getOwner().getId())
                 .changedById(changedById)
                 .subscribers(participants)
-                .changes(changes)
+                .changes(List.of(changeStatus))
+                .build();
+    }
+
+    public EventChangeKafkaMessage createStatusChangedMessage(
+            EventEntity event,
+            Long changedById,
+            List<Long> participants,
+            String oldStatus,
+            String newStatus
+    ) {
+        ChangeItem changeStatus = new ChangeItem(
+                "status",
+                oldStatus,
+                newStatus
+        );
+
+        return EventChangeKafkaMessage.builder()
+                .messageId(UUID.randomUUID().toString())
+                .eventType(EventType.STATUS_CHANGED)
+                .eventId(event.getId())
+                .eventName(event.getName())
+                .occurredAt(LocalDateTime.now())
+                .ownerId(event.getOwner().getId())
+                .changedById(changedById)
+                .subscribers(participants)
+                .changes(List.of(changeStatus))
                 .build();
     }
 }

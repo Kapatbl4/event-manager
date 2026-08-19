@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -82,6 +83,15 @@ public class GlobalExceptionHandler {
                 "Access denied"
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorMessageResponse);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorMessageResponse> handleBadCredentialException(BadCredentialsException ex) {
+        ErrorMessageResponse errorMessageResponse = new ErrorMessageResponse(
+                ex.getMessage(),
+                "Login and/or password is incorrect"
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorMessageResponse);
     }
 
 }

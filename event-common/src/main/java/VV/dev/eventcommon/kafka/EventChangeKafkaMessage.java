@@ -10,6 +10,7 @@ public class EventChangeKafkaMessage {
     private String messageId;
     private EventType eventType;
     private Long eventId;
+    private String eventName;
     private LocalDateTime occurredAt;
     private Long ownerId;
     private Long changedById;
@@ -23,6 +24,7 @@ public class EventChangeKafkaMessage {
             String messageId,
             EventType eventType,
             Long eventId,
+            String eventName,
             LocalDateTime occurredAt,
             Long ownerId,
             Long changedById,
@@ -32,6 +34,7 @@ public class EventChangeKafkaMessage {
         this.messageId = messageId;
         this.eventType = eventType;
         this.eventId = eventId;
+        this.eventName = eventName;
         this.occurredAt = occurredAt;
         this.ownerId = ownerId;
         this.changedById = changedById;
@@ -61,6 +64,14 @@ public class EventChangeKafkaMessage {
 
     public void setEventId(Long eventId) {
         this.eventId = eventId;
+    }
+
+    public String getEventName() {
+        return eventName;
+    }
+
+    public void setEventName(String eventName) {
+        this.eventName = eventName;
     }
 
     public LocalDateTime getOccurredAt() {
