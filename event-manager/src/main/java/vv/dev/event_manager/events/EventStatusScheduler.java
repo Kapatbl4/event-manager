@@ -1,6 +1,6 @@
 package vv.dev.event_manager.events;
 
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

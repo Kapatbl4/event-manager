@@ -1,8 +1,10 @@
 package vv.dev.event_manager.events;
 
-import VV.dev.eventcommon.kafka.ChangeItem;
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import vv.dev.eventcommon.kafka.ChangeItem;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -30,6 +32,7 @@ import java.util.Objects;
 
 @Service
 public class EventService {
+    private final Logger log = LoggerFactory.getLogger(EventService.class);
 
     private final EventRepository eventRepository;
     private final EventLocationRepository eventLocationRepository;
@@ -110,6 +113,7 @@ public class EventService {
         }
         String oldStatus = event.getStatus().name();
 
+        List<Long> participants = registrationService.findAllEventParticipants(event.getId());
         event.setStatus(EventStatus.CANCELLED);
         eventRepository.save(eventMapper.fromDomainToEntity(event));
         registrationService.cancelRegistrationsOnCancelledEvent(eventId);
@@ -117,12 +121,11 @@ public class EventService {
         EventChangeKafkaMessage message = eventMessageBuilder.createStatusChangedMessage(
                 event,
                 user.getId(),
-                registrationService.findAllEventParticipants(event.getId()),
+                participants,
                 oldStatus,
                 event.getStatus().name()
         );
         outboxService.saveMessage(message);
-
     }
 
     public Event getEventById(Long eventId) {

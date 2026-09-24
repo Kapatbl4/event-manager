@@ -1,8 +1,8 @@
 package vv.dev.event_manager.kafka;
 
-import VV.dev.eventcommon.kafka.ChangeItem;
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
-import VV.dev.eventcommon.kafka.EventType;
+import vv.dev.eventcommon.kafka.ChangeItem;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import vv.dev.eventcommon.kafka.EventType;
 import org.springframework.stereotype.Component;
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.events.model.EventEntity;

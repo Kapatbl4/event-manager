@@ -1,6 +1,6 @@
 package vv.dev.event_manager.kafka.outbox;
 
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;

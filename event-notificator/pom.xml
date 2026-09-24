@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>VV.dev</groupId>
+        <groupId>vv.dev</groupId>
         <artifactId>event-manager-platform</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
@@ -49,7 +49,7 @@
         </dependency>
 
         <dependency>
-            <groupId>VV.dev</groupId>
+            <groupId>vv.dev</groupId>
             <artifactId>event-common</artifactId>
             <version>${project.version}</version>
         </dependency>

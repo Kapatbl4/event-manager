@@ -1,10 +1,13 @@
 package vv.dev.event_manager.kafka;
 
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import org.springframework.kafka.support.SendResult;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class EventChangeKafkaMessageSender {
@@ -22,9 +25,9 @@ public class EventChangeKafkaMessageSender {
         this.topics = kafkaTopicsProperties;
     }
 
-    public void sendMessage(EventChangeKafkaMessage message) {
+    public CompletableFuture<SendResult<Long, EventChangeKafkaMessage>> sendMessage(EventChangeKafkaMessage message) {
         String topic = topics.getEventChanges();
         log.info("Sending event changing message: message={}", message);
-        kafkaTemplate.send(topic, message.getEventId(), message);
+        return kafkaTemplate.send(topic, message.getEventId(), message);
     }
 }

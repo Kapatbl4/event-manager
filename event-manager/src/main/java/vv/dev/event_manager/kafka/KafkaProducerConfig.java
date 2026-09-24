@@ -1,6 +1,6 @@
 package vv.dev.event_manager.kafka;
 
-import VV.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
