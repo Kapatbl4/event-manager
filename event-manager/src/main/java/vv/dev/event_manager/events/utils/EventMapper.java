@@ -1,8 +1,11 @@
 package vv.dev.event_manager.events.utils;
 
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 import vv.dev.event_manager.events.EventStatus;
 import vv.dev.event_manager.events.model.Event;
 import vv.dev.event_manager.events.model.EventEntity;
@@ -60,4 +63,12 @@ public interface EventMapper {
     default String longToString(Long value) {
         return value != null ? String.valueOf(value) : null;
     }
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    @Mapping(target = "occupiedPlaces", ignore = true)
+    @Mapping(target = "location", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    void updateEventFromDto(EventUpdateDto dto, @MappingTarget Event event);
 }

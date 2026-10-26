@@ -1,5 +1,8 @@
 package vv.dev.event_manager.events;
 
+import vv.dev.event_manager.events.model.dto.EventUpdateDto;
+import vv.dev.event_manager.location.EventLocationMapper;
+import vv.dev.event_manager.location.model.EventLocation;
 import vv.dev.eventcommon.kafka.ChangeItem;
 import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import jakarta.persistence.EntityNotFoundException;
@@ -38,6 +41,7 @@ public class EventService {
     private final EventLocationRepository eventLocationRepository;
     private final UserRepository userRepository;
     private final EventMapper eventMapper;
+    private final EventLocationMapper eventLocationMapper;
     private final UserMapper userMapper;
     private final PermissionService permissionService;
     private final RegistrationService registrationService;
@@ -50,6 +54,7 @@ public class EventService {
             EventLocationRepository eventLocationRepository,
             UserRepository userRepository,
             EventMapper eventMapper,
+            EventLocationMapper eventLocationMapper,
             UserMapper userMapper,
             PermissionService permissionService,
             RegistrationService registrationService,
@@ -61,6 +66,7 @@ public class EventService {
         this.eventLocationRepository = eventLocationRepository;
         this.userRepository = userRepository;
         this.eventMapper = eventMapper;
+        this.eventLocationMapper = eventLocationMapper;
         this.userMapper = userMapper;
         this.permissionService = permissionService;
         this.registrationService = registrationService;
@@ -137,7 +143,7 @@ public class EventService {
     }
 
     @Transactional
-    public Event updateEvent(Long eventId, Event data, Long userId) throws AccessDeniedException {
+    public Event updateEvent(Long eventId, EventUpdateDto data, Long userId) throws AccessDeniedException {
         var foundEvent = eventRepository.findById(eventId);
         if (foundEvent.isEmpty()) {
             throw new EntityNotFoundException("Event not found");
@@ -159,67 +165,64 @@ public class EventService {
             throw new IllegalStateException("You can update only waiting start event");
         }
 
-        if (data.getMaxPlaces() < event.getOccupiedPlaces()) {
+        if (data.getMaxPlaces() != null && data.getMaxPlaces() < event.getOccupiedPlaces()) {
             throw new IllegalArgumentException("Cannot update event: capacity cannot be less than occupied places");
         }
 
-        if (data.getLocation() != null) {
-            if (!eventLocationRepository.existsById(data.getLocation().getId())) {
+        if (data.getLocationId() != null) {
+            if (!eventLocationRepository.existsById(data.getLocationId())) {
                 throw new IllegalArgumentException("Cannot update event: event location not found");
             }
         }
 
         List<EventEntity> conflictEvents = new ArrayList<>();
 
-        if (data.getDate() != null) {
-            if (data.getDuration() != null) {
-                conflictEvents = this.findConflictingEvents(
-                        event.getLocation().getId(),
-                        data.getDate(),
-                        data.getDuration(),
-                        eventId
-                );
-            } else {
-                conflictEvents = this.findConflictingEvents(
-                        event.getLocation().getId(),
-                        data.getDate(),
-                        event.getDuration(),
-                        eventId
-                );
-            }
-        } else {
-            if (data.getDuration() != null) {
-                conflictEvents = this.findConflictingEvents(
-                        event.getLocation().getId(),
-                        event.getDate(),
-                        data.getDuration(),
-                        eventId
-                );
-            }
+//        if (data.getDate() != null) {
+//            if (data.getDuration() != null) {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        data.getDate(),
+//                        data.getDuration(),
+//                        eventId
+//                );
+//            } else {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        data.getDate(),
+//                        event.getDuration(),
+//                        eventId
+//                );
+//            }
+//        } else {
+//            if (data.getDuration() != null) {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        event.getDate(),
+//                        data.getDuration(),
+//                        eventId
+//                );
+//            }
+//        }
+        LocalDateTime checkDate = data.getDate() == null ? event.getDate() : data.getDate();
+        Integer checkDuration = data.getDuration() == null ? event.getDuration() : data.getDuration();
+        if (checkDate != null && checkDuration != null) {
+            conflictEvents = this.findConflictingEvents(
+                    event.getLocation().getId(),
+                    checkDate,
+                    checkDuration,
+                    eventId
+            );
         }
 
-
-        if (!conflictEvents.isEmpty() && !Objects.equals(eventId, event.getId())) {
+        if (!conflictEvents.isEmpty()) {
             throw new IllegalArgumentException("Cannot update event: time conflict detected on this location");
         }
 
-        if (data.getName() != null) {
-            event.setName(data.getName());
-        }
-        if (data.getMaxPlaces() != null) {
-            event.setMaxPlaces(data.getMaxPlaces());
-        }
-        if (data.getDate() != null) {
-            event.setDate(data.getDate());
-        }
-        if (data.getCost() != null) {
-            event.setCost(data.getCost());
-        }
-        if (data.getDuration() != null) {
-            event.setDuration(data.getDuration());
-        }
-        if (data.getLocation() != null) {
-            event.setLocation(data.getLocation());
+        eventMapper.updateEventFromDto(data, event);
+        if (data.getLocationId() != null) {
+            var location = eventLocationRepository.findById(data.getLocationId())
+                    .orElseThrow(() -> new EntityNotFoundException("Location not found"));
+            event.setLocation(eventLocationMapper.fromEntityToDomain(location));
         }
 
         var updatedEvent = eventRepository.save(eventMapper.fromDomainToEntity(event));

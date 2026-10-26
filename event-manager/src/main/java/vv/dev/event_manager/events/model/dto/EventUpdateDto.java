@@ -25,7 +25,7 @@ public class EventUpdateDto {
 
     public EventUpdateDto(
             String name,
-            int maxPlaces,
+            Integer maxPlaces,
             LocalDateTime date,
             BigDecimal cost,
             Integer duration,
@@ -47,11 +47,11 @@ public class EventUpdateDto {
         this.name = name;
     }
 
-    public int getMaxPlaces() {
+    public Integer getMaxPlaces() {
         return maxPlaces;
     }
 
-    public void setMaxPlaces(int maxPlaces) {
+    public void setMaxPlaces(Integer maxPlaces) {
         this.maxPlaces = maxPlaces;
     }
 

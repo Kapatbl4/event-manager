@@ -95,7 +95,7 @@ public class EventController {
 
         var updatedEvent = eventService.updateEvent(
                 eventId,
-                eventConverter.fromUpdateDtoToDomain(data),
+                data,
                 user.getId()
         );
 

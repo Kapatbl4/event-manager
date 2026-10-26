@@ -5,11 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 import java.nio.file.AccessDeniedException;
 
@@ -92,6 +94,23 @@ public class GlobalExceptionHandler {
                 "Login and/or password is incorrect"
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorMessageResponse);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorMessageResponse> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        String detailedMessage = "Invalid JSON request format";
+
+        if (ex.getCause() instanceof UnrecognizedPropertyException unrecognizedPropertyException) {
+           detailedMessage = "Unknown field in request: " + unrecognizedPropertyException.getPropertyName();
+        } else if (ex.getCause() instanceof com.fasterxml.jackson.databind.exc.MismatchedInputException) {
+            detailedMessage = "Invalid field type or missing required data";
+        }
+
+        ErrorMessageResponse response = new ErrorMessageResponse(
+                ex.getMessage(),
+                detailedMessage
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
 }
