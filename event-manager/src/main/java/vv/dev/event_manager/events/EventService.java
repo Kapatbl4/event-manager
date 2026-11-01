@@ -1,0 +1,296 @@
+package vv.dev.event_manager.events;
+
+import vv.dev.event_manager.events.model.dto.EventUpdateDto;
+import vv.dev.event_manager.location.EventLocationMapper;
+import vv.dev.event_manager.location.model.EventLocation;
+import vv.dev.eventcommon.kafka.ChangeItem;
+import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vv.dev.event_manager.events.model.Event;
+import vv.dev.event_manager.events.model.EventEntity;
+import vv.dev.event_manager.events.model.dto.EventSearchRequestDto;
+import vv.dev.event_manager.events.utils.EventMapper;
+import vv.dev.event_manager.events.utils.PermissionService;
+import vv.dev.event_manager.kafka.EventChangeCollector;
+import vv.dev.event_manager.kafka.EventMessageBuilder;
+import vv.dev.event_manager.kafka.outbox.OutboxService;
+import vv.dev.event_manager.location.EventLocationRepository;
+import vv.dev.event_manager.registration.RegistrationService;
+import vv.dev.event_manager.user.UserMapper;
+import vv.dev.event_manager.user.UserRepository;
+import vv.dev.event_manager.user.model.User;
+
+import java.nio.file.AccessDeniedException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+@Service
+public class EventService {
+    private final Logger log = LoggerFactory.getLogger(EventService.class);
+
+    private final EventRepository eventRepository;
+    private final EventLocationRepository eventLocationRepository;
+    private final UserRepository userRepository;
+    private final EventMapper eventMapper;
+    private final EventLocationMapper eventLocationMapper;
+    private final UserMapper userMapper;
+    private final PermissionService permissionService;
+    private final RegistrationService registrationService;
+    private final OutboxService outboxService;
+    private final EventMessageBuilder eventMessageBuilder;
+    private final EventChangeCollector eventChangeCollector;
+
+    public EventService(
+            EventRepository eventRepository,
+            EventLocationRepository eventLocationRepository,
+            UserRepository userRepository,
+            EventMapper eventMapper,
+            EventLocationMapper eventLocationMapper,
+            UserMapper userMapper,
+            PermissionService permissionService,
+            RegistrationService registrationService,
+            OutboxService outboxService,
+            EventMessageBuilder eventMessageBuilder,
+            EventChangeCollector eventChangeCollector
+    ) {
+        this.eventRepository = eventRepository;
+        this.eventLocationRepository = eventLocationRepository;
+        this.userRepository = userRepository;
+        this.eventMapper = eventMapper;
+        this.eventLocationMapper = eventLocationMapper;
+        this.userMapper = userMapper;
+        this.permissionService = permissionService;
+        this.registrationService = registrationService;
+        this.outboxService = outboxService;
+        this.eventMessageBuilder = eventMessageBuilder;
+        this.eventChangeCollector = eventChangeCollector;
+    }
+
+    @Transactional
+    public Event createEvent(Event event) {
+        List<EventEntity> conflictEvents = this.findConflictingEvents(
+                event.getLocation().getId(),
+                event.getDate(),
+                event.getDuration(),
+                null
+        );
+
+        if (!conflictEvents.isEmpty()) {
+            throw new IllegalArgumentException("Cannot create event: time conflict detected on this location");
+        }
+
+        if (event.getLocation().getCapacity() < event.getMaxPlaces()) {
+            throw new IllegalArgumentException("Max places cannot be greater than capacity of location");
+        }
+
+        var savedEvent = eventRepository.save(eventMapper.fromDomainToEntity(event));
+
+        return eventMapper.fromEntityToDomain(savedEvent);
+    }
+
+    @Transactional
+    public void deleteEvent(Long eventId, Long userId) throws AccessDeniedException {
+        var foundEvent = eventRepository.findById(eventId);
+        if (foundEvent.isEmpty()) {
+            throw new EntityNotFoundException("Event not found");
+        }
+        Event event = eventMapper.fromEntityToDomain(foundEvent.get());
+        User user = userMapper.fromEntityToDomain(
+                userRepository.findById(userId)
+                        .orElseThrow(() -> new EntityNotFoundException("User not found"))
+        );
+
+        boolean isAdminOrOwner = permissionService.isAdminOrOwner(user, event);
+
+        if (!isAdminOrOwner) {
+            throw new AccessDeniedException("Access denied");
+        }
+        if (!event.getStatus().equals(EventStatus.WAIT_START)) {
+            throw new IllegalStateException("Cannot cancel event: you can cancel event with status WAIT_START only");
+        }
+        String oldStatus = event.getStatus().name();
+
+        List<Long> participants = registrationService.findAllEventParticipants(event.getId());
+        event.setStatus(EventStatus.CANCELLED);
+        eventRepository.save(eventMapper.fromDomainToEntity(event));
+        registrationService.cancelRegistrationsOnCancelledEvent(eventId);
+
+        EventChangeKafkaMessage message = eventMessageBuilder.createStatusChangedMessage(
+                event,
+                user.getId(),
+                participants,
+                oldStatus,
+                event.getStatus().name()
+        );
+        outboxService.saveMessage(message);
+    }
+
+    public Event getEventById(Long eventId) {
+        var event = eventRepository.findById(eventId);
+        if (event.isEmpty()) {
+            throw new EntityNotFoundException("Event not found");
+        }
+        return eventMapper.fromEntityToDomain(event.get());
+    }
+
+    @Transactional
+    public Event updateEvent(Long eventId, EventUpdateDto data, Long userId) throws AccessDeniedException {
+        var foundEvent = eventRepository.findById(eventId);
+        if (foundEvent.isEmpty()) {
+            throw new EntityNotFoundException("Event not found");
+        }
+        Event oldEvent = eventMapper.fromEntityToDomain(foundEvent.get());
+        Event event = eventMapper.fromEntityToDomain(foundEvent.get());
+        User user = userMapper.fromEntityToDomain(
+                userRepository.findById(userId)
+                        .orElseThrow(() -> new EntityNotFoundException("User not found"))
+        );
+
+        boolean isAdminOrOwner = permissionService.isAdminOrOwner(user, event);
+
+        if (!isAdminOrOwner) {
+            throw new AccessDeniedException("Access denied");
+        }
+
+        if (!event.getStatus().equals(EventStatus.WAIT_START)) {
+            throw new IllegalStateException("You can update only waiting start event");
+        }
+
+        if (data.getMaxPlaces() != null && data.getMaxPlaces() < event.getOccupiedPlaces()) {
+            throw new IllegalArgumentException("Cannot update event: capacity cannot be less than occupied places");
+        }
+
+        if (data.getLocationId() != null) {
+            if (!eventLocationRepository.existsById(data.getLocationId())) {
+                throw new IllegalArgumentException("Cannot update event: event location not found");
+            }
+        }
+
+        List<EventEntity> conflictEvents = new ArrayList<>();
+
+//        if (data.getDate() != null) {
+//            if (data.getDuration() != null) {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        data.getDate(),
+//                        data.getDuration(),
+//                        eventId
+//                );
+//            } else {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        data.getDate(),
+//                        event.getDuration(),
+//                        eventId
+//                );
+//            }
+//        } else {
+//            if (data.getDuration() != null) {
+//                conflictEvents = this.findConflictingEvents(
+//                        event.getLocation().getId(),
+//                        event.getDate(),
+//                        data.getDuration(),
+//                        eventId
+//                );
+//            }
+//        }
+        LocalDateTime checkDate = data.getDate() == null ? event.getDate() : data.getDate();
+        Integer checkDuration = data.getDuration() == null ? event.getDuration() : data.getDuration();
+        if (checkDate != null && checkDuration != null) {
+            conflictEvents = this.findConflictingEvents(
+                    event.getLocation().getId(),
+                    checkDate,
+                    checkDuration,
+                    eventId
+            );
+        }
+
+        if (!conflictEvents.isEmpty()) {
+            throw new IllegalArgumentException("Cannot update event: time conflict detected on this location");
+        }
+
+        eventMapper.updateEventFromDto(data, event);
+        if (data.getLocationId() != null) {
+            var location = eventLocationRepository.findById(data.getLocationId())
+                    .orElseThrow(() -> new EntityNotFoundException("Location not found"));
+            event.setLocation(eventLocationMapper.fromEntityToDomain(location));
+        }
+
+        var updatedEvent = eventRepository.save(eventMapper.fromDomainToEntity(event));
+
+        List<ChangeItem> changes = eventChangeCollector.collectEventChanges(oldEvent, event);
+        if (!changes.isEmpty()) {
+            EventChangeKafkaMessage message = eventMessageBuilder.createUpdateMessage(
+                    event,
+                    user.getId(),
+                    registrationService.findAllEventParticipants(event.getId()),
+                    changes
+            );
+            outboxService.saveMessage(message);
+        }
+
+        return eventMapper.fromEntityToDomain(updatedEvent);
+    }
+
+    public List<Event> getCurrentUserEvents(User user) {
+        List<EventEntity> foundEvents = eventRepository.findAllByUserId(user.getId());
+        return foundEvents.stream()
+                .map(eventMapper::fromEntityToDomain)
+                .toList();
+    }
+
+
+    public Page<Event> searchEventsByParams(EventSearchRequestDto searchDto, Pageable pageable) {
+        Specification<EventEntity> spec = Specification
+                .where(EventSpecification.hasName(searchDto.getName()))
+                .and(EventSpecification.hasLocationId(searchDto.getLocationId()))
+                .and(EventSpecification.hasDurationMin(searchDto.getDurationMin()))
+                .and(EventSpecification.hasDurationMax(searchDto.getDurationMax()))
+                .and(EventSpecification.hasDateStartBefore(searchDto.getDateStartBefore()))
+                .and(EventSpecification.hasDateStartAfter(searchDto.getDateStartAfter()))
+                .and(EventSpecification.hasCostMin(searchDto.getCostMin()))
+                .and(EventSpecification.hasCostMax(searchDto.getCostMax()))
+                .and(EventSpecification.hasPlacesMin(searchDto.getPlacesMin()))
+                .and(EventSpecification.hasPlacesMax(searchDto.getPlacesMax()))
+                .and(EventSpecification.hasEventStatus(searchDto.getEventStatus()));
+
+        Page<EventEntity> foundEventsPage = eventRepository.findAll(spec, pageable);
+        return foundEventsPage
+                .map(eventMapper::fromEntityToDomain);
+    }
+
+    private List<EventEntity> findConflictingEvents(
+            Long locationId,
+            LocalDateTime newEventStartTime,
+            Integer newEventDuration,
+            Long excludeEventId
+    ) {
+        List<EventEntity> conflictedEvents = new ArrayList<>();
+        LocalDateTime newEventEndTime = newEventStartTime.plusMinutes(newEventDuration);
+
+        List<EventEntity> futureEvents = eventRepository.findEventsByLocationAndInTheFutureOrPresent(locationId);
+        for (EventEntity event : futureEvents) {
+            if (excludeEventId != null && excludeEventId.equals(event.getId())) {
+                continue;
+            }
+            LocalDateTime endTime = event.getDate().plusMinutes(event.getDuration());
+            if (
+                    newEventStartTime.isBefore(endTime) &&
+                            event.getDate().isBefore(newEventEndTime) &&
+                            !event.getStatus().equals("CANCELLED")
+            ) {
+                conflictedEvents.add(event);
+            }
+        }
+        return conflictedEvents;
+    }
+}
