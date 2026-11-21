@@ -2,6 +2,9 @@ package vv.dev.event_manager.location;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -10,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vv.dev.event_manager.location.model.EventLocation;
 import vv.dev.event_manager.location.model.EventLocationEntity;
 import vv.dev.event_manager.location.model.dto.EventLocationFullUpdateDto;
+import vv.dev.event_manager.location.model.dto.PageDto;
 
 import java.util.Optional;
 
@@ -29,6 +33,10 @@ public class EventLocationService {
         this.eventLocationMapper = eventLocationMapper;
     }
 
+    @CacheEvict(
+            value = "locations",
+            allEntries = true
+    )
     @Transactional
     public EventLocation saveEventLocation(EventLocation eventLocation) {
         if (eventLocationRepository.existsByName(eventLocation.getName())) {
@@ -40,12 +48,27 @@ public class EventLocationService {
         return eventLocationMapper.fromEntityToDomain(eventLocationRepository.save(entityToSave));
     }
 
-    public Page<EventLocation> findAll(Pageable pageable) {
-        return eventLocationRepository
+    @Cacheable(
+            value = "locations",
+            key = "'all_' + #pageable.pageNumber + '_' + #pageable.pageSize"
+    )
+    public PageDto<EventLocation> findAll(Pageable pageable) {
+        Page<EventLocation> page = eventLocationRepository
                 .findAll(pageable)
                 .map(eventLocationMapper::fromEntityToDomain);
+        return new PageDto<>(
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
     }
 
+    @Cacheable(
+            value = "location",
+            key = "#locationId"
+    )
     public EventLocation findById(Long locationId) {
         Optional<EventLocationEntity> entity = eventLocationRepository.findById(locationId);
         if (entity.isEmpty()) {
@@ -55,6 +78,10 @@ public class EventLocationService {
         return eventLocationMapper.fromEntityToDomain(entity.get());
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "location", key = "#locationId"),
+            @CacheEvict(value = "locations", allEntries = true)
+    })
     @Transactional
     public void deleteById(Long locationId) {
         if (!eventLocationRepository.existsById(locationId)) {
@@ -63,6 +90,10 @@ public class EventLocationService {
         eventLocationRepository.deleteById(locationId);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "location", key = "#locationId"),
+            @CacheEvict(value = "locations", allEntries = true)
+    })
     @Transactional
     public EventLocation fullUpdateById(
             Long locationId,

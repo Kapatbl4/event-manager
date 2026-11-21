@@ -19,20 +19,20 @@ public class EventChangeCollector {
                 String.valueOf(newEvent.getName())
         );
 
-        addIfChanged(changes, "owner",
-                String.valueOf(oldEvent.getOwner()),
-                String.valueOf(newEvent.getOwner())
-        );
+//        addIfChanged(changes, "owner",
+//                String.valueOf(oldEvent.getOwner()),
+//                String.valueOf(newEvent.getOwner())
+//        );
 
         addIfChanged(changes, "maxPlaces",
                 String.valueOf(oldEvent.getMaxPlaces()),
                 String.valueOf(newEvent.getMaxPlaces())
         );
 
-        addIfChanged(changes, "occupiedPlaces",
-                String.valueOf(oldEvent.getOccupiedPlaces()),
-                String.valueOf(newEvent.getOccupiedPlaces())
-        );
+//        addIfChanged(changes, "occupiedPlaces",
+//                String.valueOf(oldEvent.getOccupiedPlaces()),
+//                String.valueOf(newEvent.getOccupiedPlaces())
+//        );
 
         addIfChanged(changes, "date",
                 String.valueOf(oldEvent.getDate()),
@@ -49,9 +49,11 @@ public class EventChangeCollector {
                 String.valueOf(newEvent.getDuration())
         );
 
+        String oldEventLocationName = oldEvent.getLocation() == null ? null : oldEvent.getLocation().getName();
+        String newEventLocationName = newEvent.getLocation() == null ? null : newEvent.getLocation().getName();
         addIfChanged(changes, "location",
-                String.valueOf(oldEvent.getLocation()),
-                String.valueOf(newEvent.getLocation())
+                oldEventLocationName,
+                newEventLocationName
         );
 
         addIfChanged(changes, "status",

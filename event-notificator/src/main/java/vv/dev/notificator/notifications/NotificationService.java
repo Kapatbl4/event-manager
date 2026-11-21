@@ -1,7 +1,11 @@
 package vv.dev.notificator.notifications;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import vv.dev.notificator.notifications.model.EventNotificationEntity;
+import vv.dev.notificator.notifications.model.EventPayload;
 import vv.dev.notificator.notifications.model.UserEventNotificationDTO;
 import vv.dev.notificator.notifications.model.UserEventNotificationEntity;
 import vv.dev.notificator.notifications.repository.EventNotificationRepository;
@@ -13,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,10 +25,18 @@ import java.util.List;
 @Service
 public class NotificationService {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
+    private static final String UNREAD_KEY_PREFIX = "notif:unread:";
+
+    @Value(value = "${app.cache.ttl.notifications}")
+    private Duration notificationUnreadCounterTtl;
+
     private final EventNotificationRepository notificationRepository;
     private final UserEventNotificationRepository userEventNotificationRepository;
     private final NotificationMapper notificationMapper;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Value("${notifications.retention.days:7}")
     private int retentionDays;
@@ -32,12 +45,14 @@ public class NotificationService {
             EventNotificationRepository notificationRepository,
             UserEventNotificationRepository userEventNotificationRepository,
             NotificationMapper notificationMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            StringRedisTemplate stringRedisTemplate
     ) {
         this.notificationRepository = notificationRepository;
         this.userEventNotificationRepository = userEventNotificationRepository;
         this.notificationMapper = notificationMapper;
         this.objectMapper = objectMapper;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     public void saveNotification(EventChangeKafkaMessage message) {
@@ -54,7 +69,10 @@ public class NotificationService {
         entity.setChangedById(message.getChangedById());
 
         try {
-            String payloadJson = objectMapper.writeValueAsString(message.getChanges());
+            EventPayload payload = new EventPayload();
+            payload.setChanges(message.getChanges());
+            payload.setEventName(message.getEventName());
+            String payloadJson = objectMapper.writeValueAsString(payload);
             entity.setPayload(payloadJson);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize Kafka message", e);
@@ -75,6 +93,14 @@ public class NotificationService {
         entity.setUserNotifications(userEventNotificationEntities);
 
         notificationRepository.save(entity);
+
+        for (Long subscriberId : message.getSubscribers()) {
+            try {
+                stringRedisTemplate.opsForValue().increment(UNREAD_KEY_PREFIX + subscriberId);
+            } catch (Exception e) {
+                log.warn("Failed to increment unread counter for userId={}", subscriberId, e);
+            }
+        }
     }
 
     public List<UserEventNotificationDTO> getUserNotifications(Long userId) {
@@ -96,6 +122,16 @@ public class NotificationService {
             }
         }
         userEventNotificationRepository.saveAll(entities);
+        try {
+            long unreadCounter = userEventNotificationRepository.countByUserIdAndIsReadFalse(userId);
+            stringRedisTemplate.opsForValue().set(
+                    UNREAD_KEY_PREFIX + userId,
+                    String.valueOf(unreadCounter),
+                    notificationUnreadCounterTtl
+            );
+        } catch (Exception e) {
+            log.warn("Failed to sync unread counter for userId={}", userId, e);
+        }
     }
 
     @Transactional
