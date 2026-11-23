@@ -1,6 +1,7 @@
 package vv.dev.event_manager.registration;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vv.dev.event_manager.events.EventRepository;
@@ -33,6 +34,10 @@ public class RegistrationService {
         this.eventMapper = eventMapper;
     }
 
+    @CacheEvict(
+            value = "events",
+            key = "#eventId"
+    )
     @Transactional
     public Registration register(User user, Long eventId) {
         var event = eventRepository.findById(eventId)
@@ -60,6 +65,10 @@ public class RegistrationService {
         );
     }
 
+    @CacheEvict(
+            value = "events",
+            key = "#eventId"
+    )
     @Transactional
     public void cancelRegistration(User user, Long eventId) {
         var event = eventRepository.findById(eventId)
