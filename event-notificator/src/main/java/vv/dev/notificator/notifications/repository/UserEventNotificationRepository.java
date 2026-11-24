@@ -27,4 +27,6 @@ public interface UserEventNotificationRepository extends JpaRepository<UserEvent
             List<Long> ids,
             Long userId
     );
+
+    long countByUserIdAndIsReadFalse(Long userId);
 }

@@ -1,8 +1,9 @@
 package vv.dev.event_manager.events;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import vv.dev.event_manager.events.model.dto.EventUpdateDto;
 import vv.dev.event_manager.location.EventLocationMapper;
-import vv.dev.event_manager.location.model.EventLocation;
 import vv.dev.eventcommon.kafka.ChangeItem;
 import vv.dev.eventcommon.kafka.EventChangeKafkaMessage;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,7 +32,6 @@ import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class EventService {
@@ -97,8 +97,13 @@ public class EventService {
         return eventMapper.fromEntityToDomain(savedEvent);
     }
 
+    @CacheEvict(
+            value = "events",
+            key = "#eventId"
+    )
     @Transactional
     public void deleteEvent(Long eventId, Long userId) throws AccessDeniedException {
+        log.info("CACHE evict (delete)");
         var foundEvent = eventRepository.findById(eventId);
         if (foundEvent.isEmpty()) {
             throw new EntityNotFoundException("Event not found");
@@ -134,7 +139,12 @@ public class EventService {
         outboxService.saveMessage(message);
     }
 
+    @Cacheable(
+            value = "events",
+            key = "#eventId"
+    )
     public Event getEventById(Long eventId) {
+        log.info("NOT CACHE (getEventById)");
         var event = eventRepository.findById(eventId);
         if (event.isEmpty()) {
             throw new EntityNotFoundException("Event not found");
@@ -142,8 +152,13 @@ public class EventService {
         return eventMapper.fromEntityToDomain(event.get());
     }
 
+    @CacheEvict(
+            value = "events",
+            key = "#eventId"
+    )
     @Transactional
     public Event updateEvent(Long eventId, EventUpdateDto data, Long userId) throws AccessDeniedException {
+        log.info("CACHE evict (update)");
         var foundEvent = eventRepository.findById(eventId);
         if (foundEvent.isEmpty()) {
             throw new EntityNotFoundException("Event not found");

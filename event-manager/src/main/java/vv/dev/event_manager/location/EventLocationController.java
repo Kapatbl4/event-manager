@@ -3,7 +3,6 @@ package vv.dev.event_manager.location;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -22,6 +21,9 @@ import vv.dev.event_manager.location.model.EventLocation;
 import vv.dev.event_manager.location.model.dto.EventLocationCreateDto;
 import vv.dev.event_manager.location.model.dto.EventLocationFullUpdateDto;
 import vv.dev.event_manager.location.model.dto.EventLocationShowDto;
+import vv.dev.event_manager.location.model.dto.PageDto;
+
+import java.util.List;
 
 
 @RestController
@@ -54,7 +56,7 @@ public class EventLocationController {
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('USER', 'ADMIN')")
-    public ResponseEntity<Page<EventLocationShowDto>> showAll(
+    public ResponseEntity<PageDto<EventLocationShowDto>> showAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -62,11 +64,22 @@ public class EventLocationController {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<EventLocation> locations = service.findAll(pageable);
+        PageDto<EventLocation> locations = service.findAll(pageable);
 
-        Page<EventLocationShowDto> dtos = locations.map(eventLocationMapper::fromDomainToShowDto);
+        List<EventLocationShowDto> dtos = locations.content()
+                .stream()
+                .map(eventLocationMapper::fromDomainToShowDto)
+                .toList();
 
-        return ResponseEntity.ok(dtos);
+        PageDto<EventLocationShowDto> result = new PageDto<>(
+                dtos,
+                locations.page(),
+                locations.size(),
+                locations.totalElements(),
+                locations.totalPages()
+        );
+
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{locationId}")
